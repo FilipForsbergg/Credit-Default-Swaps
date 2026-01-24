@@ -16,9 +16,25 @@ PD_TABLE = {
 
 def rating_to_pd(rating: str, horizon_years: int | str) -> float:
     horizon_years = str(horizon_years)
+
+    # Translate data to match keys in PD_TABLE
+    translate_ratings = {
+        "AAA": "AAA",
+        "AA+": "AA", "AA": "AA", "AA-": "AA",
+        "A+": "A", "A": "A", "A-": "A",
+        "BBB+": "BBB", "BBB": "BBB", "BBB-": "BBB",
+        "BB+": "BB", "BB": "BB", "BB-": "BB",
+        "B+": "B", "B": "B", "B-": "B",
+        "CCC+": "CCC", "CCC": "CCC", "CCC-": "CCC",
+        "CC": "CCC", "C": "CCC",
+        "D": "CCC",
+    }
     
-    if rating not in PD_TABLE or horizon_years not in PD_TABLE[rating]:
-        raise KeyError(f"Unknown rating or horizon years: {rating}, {horizon_years}")
+    if rating not in translate_ratings:
+        raise KeyError(f"Unknown rating or horizon years: {rating}")
+    rating = translate_ratings[rating]
+    if horizon_years not in PD_TABLE[rating]:
+        raise KeyError(f"Unknow horizon years: {horizon_years} for rating: {rating}")
     
     default_prob = PD_TABLE[rating][horizon_years]
     return float(default_prob)
