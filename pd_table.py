@@ -1,3 +1,4 @@
+import re
 
 """
 Average cumulative default probabilites for different credit-ratings and time horizons.
@@ -14,8 +15,24 @@ PD_TABLE = {
 "CCC": {"1": 0.2708, "2": 0.3664, "3": 0.4141, "4": 0.4410, "5": 0.4619, "7": 0.4826, "10": 0.5038, "15": 0.5259},
 }
 
+RATING_REGEX = re.compile(
+r"(AAA|AA\+|AA|AA-|A\+|A|A-|BBB\+|BBB|BBB-|BB\+|BB|BB-|B\+|B|B-|CCC\+|CCC|CCC-|CC|C|D)"
+)
+
+def clean_rating(rating) -> str | None:
+    if rating is None:
+        return None
+
+    s = str(rating).strip().upper()
+    if s in {"", "NAN", "NONE"}:
+        return None
+
+    m = RATING_REGEX.search(s) # <-- search istället för match
+    return m.group(1) if m else None
+
 def rating_to_pd(rating: str, horizon_years: int | str) -> float:
     horizon_years = str(horizon_years)
+    rating = clean_rating(rating)
 
     # Translate data to match keys in PD_TABLE
     translate_ratings = {
@@ -31,10 +48,10 @@ def rating_to_pd(rating: str, horizon_years: int | str) -> float:
     }
     
     if rating not in translate_ratings:
-        raise KeyError(f"Unknown rating or horizon years: {rating}")
+        return None
     rating = translate_ratings[rating]
     if horizon_years not in PD_TABLE[rating]:
-        raise KeyError(f"Unknow horizon years: {horizon_years} for rating: {rating}")
+        return None
     
     default_prob = PD_TABLE[rating][horizon_years]
     return float(default_prob)
