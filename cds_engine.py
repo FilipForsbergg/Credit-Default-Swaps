@@ -14,7 +14,7 @@ class EngineParams:
     freq: int
 
 
-class CDSEngine:
+class CDSPipeLine:
     def __init__(self, params):
         self.T = params.T
         self.r = params.r
