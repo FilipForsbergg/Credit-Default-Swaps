@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 """
 Average cumulative default probabilites for different credit-ratings and time horizons.
@@ -19,7 +20,7 @@ RATING_REGEX = re.compile(
 r"(AAA|AA\+|AA|AA-|A\+|A|A-|BBB\+|BBB|BBB-|BB\+|BB|BB-|B\+|B|B-|CCC\+|CCC|CCC-|CC|C|D)"
 )
 
-def clean_rating(rating) -> str | None:
+def clean_rating(rating) -> Optional[str]:
     if rating is None:
         return None
 
@@ -30,7 +31,7 @@ def clean_rating(rating) -> str | None:
     m = RATING_REGEX.search(s) # <-- search istället för match
     return m.group(1) if m else None
 
-def rating_to_pd(rating: str, horizon_years: int | str) -> float:
+def rating_to_pd(rating: str, horizon_years: int) -> float:
     horizon_years = str(horizon_years)
     rating = clean_rating(rating)
 
