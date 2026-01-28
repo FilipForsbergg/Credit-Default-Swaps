@@ -2,13 +2,13 @@ import json
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
-from pd_table import rating_to_pd
 
+from pd_table import rating_to_pd
 
 T = 5.0          # 5-year CDS
 FREQ = 4         # quarterly payments
 R = 0.02         # risk-free rate
-RECOVERY = 0.40 # recovery rate
+RECOVERY = 0.40  # recovery rate
 
 
 RATING_PRIORITY = [
@@ -56,7 +56,6 @@ def first_available_rating(row, columns):
         return val
 
     return None
-
 
 
 
