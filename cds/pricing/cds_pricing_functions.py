@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pd_table import rating_to_pd
+from cds.pricing.pd_table import rating_to_pd
 
 T = 5.0          # 5-year CDS
 FREQ = 4         # quarterly payments

@@ -3,7 +3,7 @@ import json
 import pandas as pd
 from dataclasses import dataclass
 
-from cds_pricing_functions import *
+from cds.pricing.cds_pricing_functions import *
 
 @dataclass
 class EngineParams:
@@ -19,7 +19,7 @@ class CDSPipeLine:
         self.T = params.T
         self.r = params.r
         self.recovery = params.recovery
-        self.coupon = 0.05
+        self.coupon = params.coupon
         self.freq = params.freq
     
     def hazard_from_rating(self, rating):
@@ -87,7 +87,7 @@ class CDSPipeLine:
             "index_flat_spread": index_flat_spread,
         }
 
-    def index_from_excel_inputs(self, df: pd.DataFrame):
+    def index_from_components(self, df: pd.DataFrame):
         """
         Använder en fast diskonteringsränta rpv01
         """
@@ -102,7 +102,7 @@ class CDSPipeLine:
             "index_flat_spread_bp": calc_index,
         }
     
-    def index_advanced_from_excel(self, df: pd.DataFrame) -> dict[str, float]:
+    def index_from_components_advanced(self, df: pd.DataFrame) -> dict[str, float]:
         be_prices = []
         for _, row in df.iterrows():
             flat_spread = row["cds_flat_spread"] / 10000

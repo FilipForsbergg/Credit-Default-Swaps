@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 """
 Average cumulative default probabilites for different credit-ratings and time horizons.
@@ -20,7 +19,7 @@ RATING_REGEX = re.compile(
 r"(AAA|AA\+|AA|AA-|A\+|A|A-|BBB\+|BBB|BBB-|BB\+|BB|BB-|B\+|B|B-|CCC\+|CCC|CCC-|CC|C|D)"
 )
 
-def clean_rating(rating) -> Optional[str]:
+def clean_rating(rating) -> str | None:
     if rating is None:
         return None
 
