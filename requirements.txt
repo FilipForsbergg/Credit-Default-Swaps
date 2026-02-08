@@ -1,0 +1,6 @@
+pandas
+matplotlib
+pandas-datareader
+openpyxl
+numpy
+matplotlib
