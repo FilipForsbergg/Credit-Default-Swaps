@@ -19,7 +19,7 @@ class CDSPipeLine:
         self.T = params.T
         self.r = params.r
         self.recovery = params.recovery
-        self.coupon = params.coupon
+        self.coupon = 0.05
         self.freq = params.freq
     
     def hazard_from_rating(self, rating):
@@ -57,7 +57,7 @@ class CDSPipeLine:
 
     def index_from_components(self, df: pd.DataFrame):
         """
-        Replicates the index-spread from its components
+        Computes the index-spread from the average of its components
         """
         be_spreads = []
 
@@ -78,13 +78,69 @@ class CDSPipeLine:
             weights.append(weight)
 
         # Calculate bond equivalent of the index as the average of its components
-        be_index_avr = sum(be_spreads) / len(be_spreads)
-        index_flat_spread_avr = 2 * self.coupon - be_index_avr
+        be_index = sum(w * s for w, s in zip(weights, be_spreads)) / sum(weights)
+        index_flat_spread = 2 * self.coupon - be_index
 
         
         return {
-            "index_be_spread": be_index_avr,
-            "index_flat_spread": index_flat_spread_avr,
+            "index_be_spread": be_index,
+            "index_flat_spread": index_flat_spread,
         }
 
+    def index_from_excel_inputs(self, df: pd.DataFrame):
+        """
+        Använder en fast diskonteringsränta rpv01
+        """
+        rpv01 = 4.25
+        df["bond_equivalent"] = 100 - (df["cds_flat_spread"] - self.coupon) * (rpv01 / 100)
 
+        be_index = df["bond_equivalent"].mean()
+        calc_index = self.coupon*100 + (100 - be_index) / (rpv01 / 100) 
+
+        return {
+            "index_be_spread_bp": be_index,
+            "index_flat_spread_bp": calc_index,
+        }
+    
+    def index_advanced_from_excel(self, df: pd.DataFrame) -> dict[str, float]:
+        be_prices = []
+        for _, row in df.iterrows():
+            flat_spread = row["cds_flat_spread"] / 10000
+            hazard = flat_spread / (1 - self.recovery)
+            pv01 = risky_pv01(self.T, self.freq, self.r, hazard)
+            upfront = (flat_spread - self.coupon) * pv01
+            price = 100 - (upfront * 100)
+
+            be_prices.append(price)
+        
+        # average price for the index
+        avg_index_price = sum(be_prices) / len(be_prices)
+
+        # convert back to spread
+        target_price = avg_index_price
+
+
+        # find the spread that gives our price
+        # using binary search
+        low = 0.0001
+        high = 1
+        solved_spread = 0
+        for i in range(100):
+            mid = (low + high) / 2
+            h_guess = mid /  (1 - self.recovery)
+            pv01_guess = risky_pv01(self.T, self.freq, self.r, h_guess)
+
+            upfront_guess = (mid - self.coupon) * pv01_guess
+            price_guess = 100 - (upfront_guess * 100)
+            
+            if price_guess < target_price:
+                # If the price is to low (too cheap), the spread is to high (too risky)
+                high = mid
+            else:
+                low = mid
+            
+        solved_spread = (low + high) / 2
+        return {
+            "index_price_avg": float(avg_index_price),
+            "index_flat_calc_bp": float(solved_spread * 10000),
+        }

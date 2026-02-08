@@ -38,6 +38,21 @@ def main():
     result = cds.index_from_components(df)
     print(result)
 
+def main2():
+    from pathlib import Path
+    path = Path(__file__).parent / "CDS_Spread_From_components.xlsx"
+    df_excel = pd.read_excel(path)
+    
+    pipeline = CDSPipeLine(
+    EngineParams(
+        T = 5,          # 5-year CDS
+        r = 0.02,       # Risk-free rate
+        recovery=0.4,   # Recovery rate
+        coupon=500,    # 500 bp
+        freq=4,         # 4 payments per year
+    ))
+    result =  pipeline.index_advanced_from_excel(df_excel)
+    print(result)
 
 if __name__ == "__main__":
-    main()
+    main2()
