@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def get_fred_data_simple(series_id):
+def get_fred_data(series_id):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
     try:
         df = pd.read_csv(url, index_col=0, parse_dates=True, na_values='.')
@@ -13,7 +13,7 @@ def get_fred_data_simple(series_id):
 
 #BB-spread
 series_id = 'BAMLH0A1HYBB'
-df_fred = get_fred_data_simple(series_id)
+df_fred = get_fred_data(series_id)
 
 if df_fred is not None:
     print(f"Got {len(df_fred)} rows from FRED for series {series_id}.")

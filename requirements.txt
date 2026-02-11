@@ -4,3 +4,6 @@ pandas-datareader
 openpyxl
 numpy
 matplotlib
+yfinance
+scipy
+seaborn
