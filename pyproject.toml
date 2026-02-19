@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cds"
+version = "0.1.0"
+description = "Credit Default Swap Pricing and Correlation Analysis"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas-datareader",
+    "openpyxl",
+    "yfinance",
+    "seaborn",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cds*"]
