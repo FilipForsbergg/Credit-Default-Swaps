@@ -24,6 +24,18 @@ def coarse_rating(x):
     x = str(x).strip()
     return COARSE_MAP.get(x)
 
+def build_rating_df(path_json: str = "rating_data.json"):
+    path = Path(__file__).parent / path_json
+    with open(path, "r") as f:
+        raw = json.load(f)
+    df = pd.DataFrame(raw["Data"])
+
+    df[WEIGHT_COL] = pd.to_numeric(df[WEIGHT_COL], errors="coerce")
+    df = df.dropna(subset=[WEIGHT_COL, RATING_COL]).copy()
+    df["rating_coarse"] = df[RATING_COL].apply(coarse_rating)
+    df = df.dropna(subset=["rating_coarse"])
+
+    return df
 
 def build_portfolio_df(path_json: str = "rating_data.json") -> pd.DataFrame:
     path = Path(__file__).parent / path_json

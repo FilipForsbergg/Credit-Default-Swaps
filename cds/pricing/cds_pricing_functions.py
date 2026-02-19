@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from cds.pricing.pd_table import rating_to_pd
+from cds.data.build_portfolio import build_portfolio_df
 
 T = 5.0          # 5-year CDS
 FREQ = 4         # quarterly payments
@@ -112,18 +113,9 @@ def fair_cds_spread(T, freq, r, lam, R):
 
 
 def main():
-    with open("data/rating_data.json", "r") as f:
-        raw = json.load(f)
-
-    df = pd.DataFrame(raw["Data"])
-
-    df = df.dropna(subset=["Wgt"])
-    df["Wgt"] = pd.to_numeric(df["Wgt"], errors="coerce")
-    df = df.dropna(subset=["Wgt"])
-
+    df = build_portfolio_df()
 
     #Compute Spreads
-
     spreads = []
 
     for _, row in df.iterrows():
@@ -144,7 +136,7 @@ def main():
 
     df["spread"] = spreads
 
-    df["RATING_CLEAN"] = df["RATING"].apply(lambda x: x.strip() if isinstance(x, str) else None)
+    df["RATING_CLEAN"] = df["rating"].apply(lambda x: x.strip() if isinstance(x, str) else None)
     df["RATING_COARSE"] = df["RATING_CLEAN"].apply(coarse_rating)
 
 
