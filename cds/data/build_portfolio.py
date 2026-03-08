@@ -7,45 +7,41 @@ T = 5  # years
 WEIGHT_COL = "Wgt"
 RATING_COL = "RATING"
 
-COARSE_MAP = {
-    "AAA": "AAA",
-    "AA+": "AA", "AA": "AA", "AA-": "AA",
-    "A+": "A", "A": "A", "A-": "A",
-    "BBB+": "BBB", "BBB": "BBB", "BBB-": "BBB",
-    "BB+": "BB", "BB": "BB", "BB-": "BB",
-    "B+": "B", "B": "B", "B-": "B",
-    "CCC+": "CCC", "CCC": "CCC", "CCC-": "CCC",
-    "CC": "CCC", "C": "CCC", "D": "CCC",
-}
+PATH_RATING = "xover_s43.json"
+PATH_MARKET_SPREADS = "spreads.json"
 
-def coarse_rating(x):
-    if x is None:
-        return None
-    x = str(x).strip()
-    return COARSE_MAP.get(x)
 
-def build_rating_df(path_json: str = "rating_data.json"):
+def load_json(path_json):
     path = Path(__file__).parent / path_json
     with open(path, "r") as f:
-        raw = json.load(f)
+        return json.load(f)
+
+def build_rating_df(path_json: str = PATH_RATING):
+    raw = load_json(path_json)
     df = pd.DataFrame(raw["Data"])
 
     df[WEIGHT_COL] = pd.to_numeric(df[WEIGHT_COL], errors="coerce")
-    df = df.dropna(subset=[WEIGHT_COL, RATING_COL]).copy()
-    df["rating_coarse"] = df[RATING_COL].apply(coarse_rating)
-    df = df.dropna(subset=["rating_coarse"])
+    
+    is_missing = (
+        df[RATING_COL].isna() |
+        (df[RATING_COL].apply(lambda x: str(x).strip() == ""))
+    )
+    missing_data = df[is_missing]
+    if not missing_data.empty:
+        names = missing_data["Company Name"]
+        print(f"Dropping companies with missing rating: {', '.join(map(str, names))}")
 
-    return df
+    df = df[~is_missing].copy()
+
+    return df[["Company Name", RATING_COL]].reset_index(drop=True)
 
 def build_portfolio_df(path_json: str = "rating_data.json") -> pd.DataFrame:
-    path = Path(__file__).parent / path_json
-    with open(path, "r") as f:
-        raw = json.load(f)
+    raw = load_json(path_json)
     df = pd.DataFrame(raw["Data"])
 
     df[WEIGHT_COL] = pd.to_numeric(df[WEIGHT_COL], errors="coerce")
     df = df.dropna(subset=[WEIGHT_COL, RATING_COL]).copy()
-    df["rating_coarse"] = df[RATING_COL].apply(coarse_rating)
+    df["rating_coarse"] = df[RATING_COL]#.apply(coarse_rating)
     df = df.dropna(subset=["rating_coarse"])
 
     # Q_i(T) from rating table
@@ -55,3 +51,24 @@ def build_portfolio_df(path_json: str = "rating_data.json") -> pd.DataFrame:
     df["w"] = df[WEIGHT_COL] / df[WEIGHT_COL].sum()
 
     return df[["rating_coarse", "Q_T", "w"]].reset_index(drop=True)
+
+def spreads_to_df(path_json: str = PATH_MARKET_SPREADS) -> pd.DataFrame:
+    raw = load_json(path_json)
+    rows = []
+    for c in raw:
+        company = c["Company"]
+
+        for entry in c["Data"]:
+            rows.append({
+                "Company": company,
+                "Date": pd.to_datetime(entry["Date"]),
+                "Spread": entry["Spread"],
+            })
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values(["Company", "Date"])
+    return df
+
+if __name__ == "__main__":
+    df = spreads_to_df()
+    print(df.head())

@@ -3,6 +3,13 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+cds/data/spreads.json
+cds/data/rating_data.json
+cds/data/xover_s43.json
+cds/data/timeserieItems.xlsx
+cds/data/CDS_Spread_From_components.xlsx
+cds/data/rating_data.json
+
 # C extensions
 *.so
 .vscode/

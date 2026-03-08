@@ -1,21 +1,17 @@
-import math
-import json
 import pandas as pd
 from dataclasses import dataclass
-
 from cds.pricing.cds_pricing_functions import *
 
 @dataclass
-class EngineParams:
+class Params:
     T: int
     r: float
     recovery: float
     coupon: int
     freq: int
 
-
-class CDSPipeLine:
-    def __init__(self, params):
+class CDS:
+    def __init__(self, params: Params):
         self.T = params.T
         self.r = params.r
         self.recovery = params.recovery
@@ -51,58 +47,9 @@ class CDSPipeLine:
         pv01 = risky_pv01(self.T, self.freq, self.r, hazard_rate)
         be = upfr / pv01 + self.coupon
         return be
-    
-    def diff_from_market():
-        pass
 
-    def index_from_components(self, df: pd.DataFrame):
-        """
-        Computes the index-spread from the average of its components
-        """
-        be_spreads = []
 
-        #incase it has different weights
-        weights = []
-
-        #Calculate bond equivalent for an individual company
-        for _, row in df.iterrows():
-            rating = row["RATING"]
-            weight = row["Wgt"]
-
-            hazard = rating_to_hazard(rating, self.T)
-            
-            flat_spread = self.flat_spread(rating)
-            be = self.bond_equivalent_spread(flat_spread, hazard) 
-
-            be_spreads.append(be)
-            weights.append(weight)
-
-        # Calculate bond equivalent of the index as the average of its components
-        be_index = sum(w * s for w, s in zip(weights, be_spreads)) / sum(weights)
-        index_flat_spread = 2 * self.coupon - be_index
-
-        
-        return {
-            "index_be_spread": be_index,
-            "index_flat_spread": index_flat_spread,
-        }
-
-    def index_from_components(self, df: pd.DataFrame):
-        """
-        Använder en fast diskonteringsränta rpv01
-        """
-        rpv01 = 4.25
-        df["bond_equivalent"] = 100 - (df["cds_flat_spread"] - self.coupon) * (rpv01 / 100)
-
-        be_index = df["bond_equivalent"].mean()
-        calc_index = self.coupon*100 + (100 - be_index) / (rpv01 / 100) 
-
-        return {
-            "index_be_spread_bp": be_index,
-            "index_flat_spread_bp": calc_index,
-        }
-    
-    def index_from_components_advanced(self, df: pd.DataFrame) -> dict[str, float]:
+    def index_from_component_spreads(self, df: pd.DataFrame) -> dict[str, float]:
         be_prices = []
         for _, row in df.iterrows():
             flat_spread = row["cds_flat_spread"] / 10000
@@ -110,22 +57,15 @@ class CDSPipeLine:
             pv01 = risky_pv01(self.T, self.freq, self.r, hazard)
             upfront = (flat_spread - self.coupon) * pv01
             price = 100 - (upfront * 100)
-
             be_prices.append(price)
-        
-        # average price for the index
         avg_index_price = sum(be_prices) / len(be_prices)
 
-        # convert back to spread
-        target_price = avg_index_price
-
-
         # find the spread that gives our price
-        # using binary search
+        target_price = avg_index_price
         low = 0.0001
         high = 1
         solved_spread = 0
-        for i in range(100):
+        for _ in range(100):
             mid = (low + high) / 2
             h_guess = mid /  (1 - self.recovery)
             pv01_guess = risky_pv01(self.T, self.freq, self.r, h_guess)
@@ -144,3 +84,19 @@ class CDSPipeLine:
             "index_price_avg": float(avg_index_price),
             "index_flat_calc_bp": float(solved_spread * 10000),
         }
+    
+    def spreads_from_rating(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["cds_flat_spread"] = df["RATING"].apply(
+            lambda x: self.flat_spread(x) * 10000
+        )
+        return df 
+
+    def index_spread_from_component_ratings(self, df: pd.DataFrame) -> dict[str, float]:
+        df["cds_flat_spread"] = df["RATING"].apply(
+            lambda x: self.flat_spread(x) * 10000
+        )
+        
+        adv_spread = self.index_from_component_spreads(df)
+        spread = df["cds_flat_spread"].mean()
+        
+        return {"adv_spread": adv_spread,"spread": spread} 

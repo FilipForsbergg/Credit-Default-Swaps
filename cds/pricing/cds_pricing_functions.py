@@ -165,7 +165,7 @@ def main():
     plt.ylabel("CDS spread (basis points)")
     plt.title("CDS spreads by rating")
     plt.tight_layout()
-    plt.savefig("cds_spreads_by_rating.png", bbox_inches='tight')
+    plt.savefig("plots/cds_spreads_by_rating.png", bbox_inches='tight')
     plt.show()
 
 
