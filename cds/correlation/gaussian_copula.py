@@ -5,6 +5,14 @@ from scipy.stats import norm
 from pathlib import Path
 from cds.pricing.cds_pricing_functions import fair_cds_spread
 from cds.data.build_portfolio import build_portfolio_df
+from cds.pricing.cds_engine import CDS
+
+
+def spreads_to_pd(df_day, T, recovery):
+    spreads = df_day["cds_flat_spread"].values / 10000
+    lambdas = spreads / (1 - recovery)
+    Q_T = 1 - np.exp(-lambdas * T)
+    return Q_T
 
 def conditional_pd(Q_T: np.ndarray, rho, alpha):
     F_alpha = norm.ppf(alpha)
@@ -34,6 +42,45 @@ def index_spread_with_correlation(df, rho, alpha, T, r, recovery, freq):
 
     index_spread = np.sum(weights * spreads)
     return index_spread
+
+def model_index_spread_from_rho(df_day, rho, alpha, cds: CDS):
+
+    Q_T = spreads_to_pd(df_day, cds.T, cds.recovery)
+
+    Q_cond = conditional_pd(Q_T, rho, alpha)
+    lambdas = -np.log(1 - Q_cond) / cds.T
+
+    spreads = []
+
+    for lam in lambdas:
+        s = fair_cds_spread(cds.T, cds.freq, cds.r, lam, cds.recovery)
+        spreads.append(s)
+
+    df_temp = df_day.copy()
+    df_temp["cds_flat_spread"] = np.array(spreads) * 10000
+
+    res = cds.index_from_component_spreads(df_temp)
+
+    return res["index_flat_calc_bp"]
+
+def implied_rho(df_day, market_spread, cds, alpha=0.05):
+
+    low = 0.0
+    high = 0.9
+
+    for _ in range(40):
+
+        mid = (low + high) / 2
+
+        s_model = model_index_spread_from_rho(df_day, mid, alpha, cds)
+
+        if s_model < market_spread:
+            low = mid
+        else:
+            high = mid
+
+    return (low + high) / 2
+
 
 def correlation_plot(rating_spread, mild, medium, stress):
     """

@@ -47,16 +47,19 @@ class CDS:
         pv01 = risky_pv01(self.T, self.freq, self.r, hazard_rate)
         be = upfr / pv01 + self.coupon
         return be
-
+    
+    def bond_equivalent_price(self, flat_spread, haz):
+        pv01 = risky_pv01(self.T, self.freq, self.r, haz)
+        upfront = (flat_spread - self.coupon) * pv01
+        price = 100 - (upfront * 100)
+        return price
 
     def index_from_component_spreads(self, df: pd.DataFrame) -> dict[str, float]:
         be_prices = []
         for _, row in df.iterrows():
             flat_spread = row["cds_flat_spread"] / 10000
             hazard = flat_spread / (1 - self.recovery)
-            pv01 = risky_pv01(self.T, self.freq, self.r, hazard)
-            upfront = (flat_spread - self.coupon) * pv01
-            price = 100 - (upfront * 100)
+            price = self.bond_equivalent_price(flat_spread, hazard)
             be_prices.append(price)
         avg_index_price = sum(be_prices) / len(be_prices)
 
