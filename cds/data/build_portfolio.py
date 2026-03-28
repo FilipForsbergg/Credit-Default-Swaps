@@ -8,8 +8,39 @@ WEIGHT_COL = "Wgt"
 RATING_COL = "RATING"
 
 PATH_RATING = "xover_s43.json"
-PATH_MARKET_SPREADS = "spreads.json"
+PATH_MARKET_SPREADS = "fixed_spreads.json"
 PATH_MARKET_INDEX_EXCEL = "timeserieItems.xlsx"
+
+RATINGS_AVAILABLE = {
+    "CCC-",
+    "CCC",
+    "CCC+",
+    "CC-",
+    "CC",
+    "CC+",
+    "C-",
+    "C",
+    "C+",
+    "BBB-",
+    "BBB",
+    "BBB+",
+    "BB-",
+    "BB",
+    "BB+",
+    "B-",
+    "B",
+    "B+",
+    "AAA-",
+    "AAA",
+    "AAA+",
+    "AA-",
+    "AA",
+    "AA+",
+    "A-",
+    "A",
+    "A+",
+}
+
 
 def load_json(path_json):
     path = Path(__file__).parent / path_json
@@ -20,15 +51,32 @@ def build_rating_df(path_json: str = PATH_RATING):
     raw = load_json(path_json)
     df = pd.DataFrame(raw["Data"])
 
-    df[WEIGHT_COL] = pd.to_numeric(df[WEIGHT_COL], errors="coerce")
+    #df[WEIGHT_COL] = pd.to_numeric(df[WEIGHT_COL], errors="coerce")
     
     is_missing = (
         df[RATING_COL].isna() |
-        (df[RATING_COL].apply(lambda x: str(x).strip() == ""))
+        (df[RATING_COL].apply(lambda x: str(x).strip() == "")) |
+        ~df[RATING_COL].isin(RATINGS_AVAILABLE)
     )
+    
+    # Use backup column if primary rating is missing
+    if is_missing.any():
+        backup_col = "Unnamed: 21"
+        backup_available = (
+            ~df.loc[is_missing, backup_col].isna() &
+            (df.loc[is_missing, backup_col].apply(lambda x: str(x).strip() != ""))
+        )
+        df.loc[is_missing & backup_available, RATING_COL] = df.loc[is_missing & backup_available, backup_col]
+        
+        # Update is_missing to reflect what's still missing after backup
+        is_missing = (
+            df[RATING_COL].isna() |
+            (df[RATING_COL].apply(lambda x: str(x).strip() == ""))
+        )
+    
     missing_data = df[is_missing]
     if not missing_data.empty:
-        # Set rating to BBB if missing
+        # Set rating to BBB if still missing
         df.loc[is_missing, RATING_COL] = "BBB"
 
         names = missing_data["Company Name"]
@@ -53,7 +101,7 @@ def spreads_to_df(path_json: str = PATH_MARKET_SPREADS) -> pd.DataFrame:
             rows.append({
                 "Company": company,
                 "Date": pd.to_datetime(entry["Date"]),
-                "cds_flat_spread": entry["cds_flat_spread"],
+                "cds_flat_spread": entry["Spread"],
             })
 
     df = pd.DataFrame(rows)

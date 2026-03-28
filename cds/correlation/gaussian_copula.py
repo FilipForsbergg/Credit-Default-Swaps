@@ -15,12 +15,47 @@ def spreads_to_pd(df_day, T, recovery):
     return Q_T
 
 def conditional_pd(Q_T: np.ndarray, rho, alpha):
+    """
+    One-factor Gaussian copula conditional PD.
+    alpha is the market-stress quantile, e.g. 0.05.
+    """
+    eps = 1e-10
+    Q_T = np.clip(Q_T, eps, 1 - eps)
+
     F_alpha = norm.ppf(alpha)
     K = norm.ppf(Q_T)
 
-    numerator = K - np.sqrt(rho) * F_alpha
-    denominator = np.sqrt(1 - rho)
-    return norm.cdf(numerator / denominator)
+    num = K - np.sqrt(rho) * F_alpha
+    den = np.sqrt(1.0 - rho)
+
+    return norm.cdf(num / den)
+
+
+def pd_to_spreads_bp(Q_cond, T, r, recovery, freq):
+    eps = 1e-10
+    Q_cond = np.clip(Q_cond, eps, 1-eps)
+    lambdas = -np.log(1-Q_cond) / T
+    
+    spreads_bp = []
+    for lam in lambdas:
+        s = fair_cds_spread(T, freq, r, lam, recovery)
+        spreads_bp.append(s * 10000)
+
+    return np.array(spreads_bp)  
+
+
+def model_index_spread_from_rho(df_day, rho, alpha, cds):
+    Q_T = spreads_to_pd(df_day, cds.T, cds.recovery)
+    Q_cond = conditional_pd(Q_T, rho, alpha)
+    stressed_spreads_bp = pd_to_spreads_bp(
+        Q_cond, cds.T, cds.r, cds.recovery, cds.freq
+    )
+
+    df_tmp = df_day.copy()
+    df_tmp["cds_flat_spread"] = stressed_spreads_bp
+
+    res = cds.index_from_component_spreads(df_tmp)
+    return res["index_flat_calc_bp"]
 
 def hazard_from_cum_pd(Q_T: np.ndarray, T):
     return -np.log(1 - Q_T) / T
@@ -43,43 +78,54 @@ def index_spread_with_correlation(df, rho, alpha, T, r, recovery, freq):
     index_spread = np.sum(weights * spreads)
     return index_spread
 
-def model_index_spread_from_rho(df_day, rho, alpha, cds: CDS):
+#def model_index_spread_from_rho(df_day, rho, alpha, cds: CDS):
+#
+#    Q_T = spreads_to_pd(df_day, cds.T, cds.recovery)
+#
+#    Q_cond = conditional_pd(Q_T, rho, alpha)
+#    lambdas = -np.log(1 - Q_cond) / cds.T
+#
+#    spreads = []
+#
+#    for lam in lambdas:
+#        s = fair_cds_spread(cds.T, cds.freq, cds.r, lam, cds.recovery)
+#        spreads.append(s)
+#
+#    df_temp = df_day.copy()
+#    df_temp["cds_flat_spread"] = np.array(spreads) * 10000
+#
+#    res = cds.index_from_component_spreads(df_temp)
+#
+#    return res["index_flat_calc_bp"]
 
-    Q_T = spreads_to_pd(df_day, cds.T, cds.recovery)
+def implied_rho(df_day, market_spread_bp, cds, alpha=0.05, tol = 1e-4, max_iter=60):
+    low, high = 0.0, 0.95
 
-    Q_cond = conditional_pd(Q_T, rho, alpha)
-    lambdas = -np.log(1 - Q_cond) / cds.T
+    s_low = model_index_spread_from_rho(df_day, low, alpha, cds)
+    s_high = model_index_spread_from_rho(df_day, high, alpha, cds)
 
-    spreads = []
+    # If market is below rho=0 model, set rho=0
+    if market_spread_bp <= s_low:
+        return 0.0
 
-    for lam in lambdas:
-        s = fair_cds_spread(cds.T, cds.freq, cds.r, lam, cds.recovery)
-        spreads.append(s)
+    # If market is above rho=high model, cap at high
+    if market_spread_bp >= s_high:
+        return high
 
-    df_temp = df_day.copy()
-    df_temp["cds_flat_spread"] = np.array(spreads) * 10000
+    for _ in range(max_iter):
+        mid = 0.5 * (low + high)
+        s_mid = model_index_spread_from_rho(df_day, mid, alpha, cds)
 
-    res = cds.index_from_component_spreads(df_temp)
+        if abs(s_mid - market_spread_bp) < tol:
+            return mid
 
-    return res["index_flat_calc_bp"]
-
-def implied_rho(df_day, market_spread, cds, alpha=0.05):
-
-    low = 0.0
-    high = 0.9
-
-    for _ in range(40):
-
-        mid = (low + high) / 2
-
-        s_model = model_index_spread_from_rho(df_day, mid, alpha, cds)
-
-        if s_model < market_spread:
+        if s_mid < market_spread_bp:
             low = mid
         else:
             high = mid
-
-    return (low + high) / 2
+    
+    print(f"Iterations: {_}")
+    return 0.5 * (low + high)
 
 
 def correlation_plot(rating_spread, mild, medium, stress):
