@@ -113,6 +113,11 @@ def market_data(path_excel: str = PATH_MARKET_INDEX_EXCEL):
     df = pd.read_excel(path)
     return df
 
+def load_all_series_cdx_hy_us_data() -> pd.ExcelFile:
+    return pd.ExcelFile(Path(__file__).parent / "CDX_HY_all_series.xlsx")
+
+
+
 if __name__ == "__main__":
     df = spreads_to_df()
     print(df.head())
